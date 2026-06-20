@@ -1,0 +1,19 @@
+{
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.autocomplete": "disabled",
+    "C_Cpp.formatting": "disabled",
+    "C_Cpp.errorSquiggles": "disabled",
+
+    "clangd.arguments": [
+        "--background-index",
+        "--clang-tidy",
+        "--compile-commands-dir=${workspaceFolder}/build/cp312-cp312-macosx_26_0_arm64",
+        "--header-insertion=never"
+    ],
+    "clangd.onConfigChanged": "restart",
+    "clangd.path": "/opt/homebrew/opt/llvm/bin/clangd",
+    "clangd.enable": true,
+    "clangd.enableCodeCompletion": true,
+    "clangd.detectExtensionConflicts": true,
+    "clangd.enableHover": true
+}

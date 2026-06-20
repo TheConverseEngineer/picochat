@@ -1,3 +1,3 @@
 import native
 
-print(native.run_bpe_training('/Users/vparikh/Desktop/picochat/datasets/bpe/corpus.txt'))
+print(native.train_tokenizer('/Users/vparikh/Desktop/picochat/datasets/bpe/TinyStories-train.txt', 'vocab.txt', 50_000))

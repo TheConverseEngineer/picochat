@@ -1,2 +1,2 @@
-from native._core import run_bpe_training # type: ignore
-__all__ = ["run_bpe_training"]
+from native._core import train_tokenizer # type: ignore
+__all__ = ["train_tokenizer"]

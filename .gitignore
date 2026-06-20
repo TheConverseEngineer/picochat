@@ -3,6 +3,12 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Datasets
+datasets/
+
+# MacOS files
+**/.DS_Store
+
 # C extensions
 *.so
 
@@ -14,7 +20,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/

@@ -1,0 +1,38 @@
+[project]
+name = "picochat"
+version = "0.1.0"
+description = "Training a 1B large language model on a single GPU"
+readme = "README.md"
+authors = [
+    { name = "vparikh", email = "vparikh35@gatech.edu" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+picochat = "picochat:main"
+
+[build-system]
+requires = ["scikit-build-core>=0.10", "nanobind>=2.0", "cmake>=3.15", "ninja"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["src/native"]
+
+[tool.scikit-build.editable]
+mode = "redirect"
+rebuild = true
+verbose = true
+
+[dependency-groups]
+dev = [
+    "cmake>=4.3.2",
+    "nanobind>=2.13.0",
+    "ninja>=1.13.0",
+    "scikit-build-core>=0.12.2",
+]
+
+[tool.uv]
+no-build-isolation-package = ["picochat"]

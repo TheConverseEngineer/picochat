@@ -15,5 +15,10 @@
     "clangd.enable": true,
     "clangd.enableCodeCompletion": true,
     "clangd.detectExtensionConflicts": true,
-    "clangd.enableHover": true
+    "clangd.enableHover": true,
+    "files.exclude": {
+        ".python-version": true,
+        "**/build": true,
+        "**/uv.lock": true
+    }
 }

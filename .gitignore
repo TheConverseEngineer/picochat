@@ -6,6 +6,9 @@ __pycache__/
 # Datasets
 datasets/
 
+# MacOS files
+**/.DS_Store
+
 # C extensions
 *.so
 

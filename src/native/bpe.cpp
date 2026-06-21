@@ -14,14 +14,14 @@
 
 namespace bpe {
 
-Vocabulary::Vocabulary() {
+BPETrainerVocabulary::BPETrainerVocabulary() {
     for (token_t i = 0; i < 256; i++) {
         token_to_word.emplace_back(1, (char)i);
     }
 }
 
 
-void Vocabulary::add_word(token_t new_token, token_t a, token_t b) {
+void BPETrainerVocabulary::add_word(token_t new_token, token_t a, token_t b) {
     merge_rules.emplace_back(a, b, new_token);
     if (token_to_word.size() <= new_token) {
         token_to_word.resize(new_token + 1);
@@ -42,7 +42,7 @@ void write_no_space(std::ofstream& stream, const std::string& str) {
 }
 
 
-void Vocabulary::write_to_file(const std::string& filename) {
+void BPETrainerVocabulary::write_to_file(const std::string& filename) {
     std::ofstream output_file(filename);
     if (!output_file) {
         std::cerr << "[FATAL]: Could not create or open output file" << std::endl;

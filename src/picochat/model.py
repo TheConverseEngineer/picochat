@@ -1,88 +1,108 @@
-import torch.nn as nn
 import torch
-import numpy as np
-
-class SwiGLU(nn.Module):
-    # TODO: is it worth switching to einsum?
-
-    def __init__(self, data_dim: int, hidden_dim: int, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._silu = nn.SiLU()
-        self._w1 = nn.Parameter(torch.randn((hidden_dim, data_dim)))
-        self._w3 = nn.Parameter(torch.randn((hidden_dim, data_dim)))
-        self._w2 = nn.Parameter(torch.randn((data_dim, hidden_dim)))
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        internal = self._silu(x @ self._w1.T) * (x @ self._w3.T)
-        return internal @ self._w2.T
-
-class RoPE(nn.Module):
-    def __init__(self, theta: float, input_dim: int, max_seq_len: int, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        cos_table, sin_table = self._calculate_rfuncs(theta, input_dim, max_seq_len)
-        self.register_buffer('_cos_table', cos_table)
-        self.register_buffer('_sin_table', sin_table)
-
-    @staticmethod
-    @torch.no_grad
-    def _calculate_rfuncs(theta: float, input_dim: int, max_seq_len: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Returns arrays cos(t), sin(t), 
-        where t[i, j] = i / theta^(2*j / input_dim), i < max_seq_len, j < input_dim/2
-        """
-        t = theta ** (torch.arange(0, input_dim, 2).float() / input_dim)
-        t.unsqueeze_(0)
-        t = torch.arange(max_seq_len, dtype=torch.float32).unsqueeze(1) @ t.reciprocal()
-        
-        return torch.cos(t), torch.sin(t)
-
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
-        # Todo: rotate across halfway boundary instead of across pair??
-        x_rotated = x.clone()
-        x_rotated[..., :, ::2] = self._cos_table[token_positions] * x[..., ::2] - self._sin_table[token_positions] * x[..., 1::2]
-        x_rotated[..., :, 1::2] = self._sin_table[token_positions] * x[..., ::2] + self._cos_table[token_positions] * x[..., 1::2]
-
-        return x_rotated
+import torch.nn as nn
 
 class TransformerBlock(nn.Module):
-    def __init__(self, hidden_dim: int, feedforward_dim: int, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+  def __init__(self, dim: int, hidden_ff_dim: int, num_heads: int):
+    super().__init__()
 
-        self._p2 = nn.Sequential(
-            nn.RMSNorm(hidden_dim),
-            SwiGLU()
-        )
+    self.attention = nn.Sequential(
+      nn.RMSNorm(dim),
+      CausalSelfAttention(dim, num_heads)
+    )
 
-        self._p1 = nn.Sequential(
-            nn.RMSNorm(hidden_dim),
+    self.ffn = nn.Sequential(
+      nn.RMSNorm(dim),
+      SwiGLU(dim, hidden_ff_dim)
+    )
 
-        )
+  def forward(self, x):
+    x = x + self.attention(x)
+    x = x + self.ffn(x)
+    return x
+
+class SwiGLU(nn.Module):
+
+  def __init__(self, dim: int, hidden_dim: int):
+    super().__init__()
+    self.hidden_dim = hidden_dim
+
+    self.w_in = nn.Linear(dim, hidden_dim * 2, bias=False)
+    self.w_out = nn.Linear(hidden_dim, dim, bias=False)
+
+  def forward(self, x):
+    w, v = self.w_in(x).chunk(2, dim=-1)
+    return self.w_out(nn.functional.silu(w) * v)
 
 
-def test_rope():
-    r = RoPE(10000.0, 18, 15)
-    rotated_x = r(torch.rand((2, 5, 10, 15, 18)), torch.randint(15, (2, 5, 10, 15)))
-    print(rotated_x.shape)
+class CausalSelfAttention(nn.Module):
 
-test_rope()
+  def __init__(self, dim: int, num_heads: int, rope_module: nn.Module = None):
+    super().__init__()
+    self.num_heads = num_heads
+    self.head_size = dim // num_heads
+    assert self.head_size * self.num_heads == dim, "num_heads must be a factor of dim"
 
-@torch.no_grad
-def test_swiglu(d_model=64, d_ff=128):
-    torch.manual_seed(4)
-    in_embeddings = torch.randn(4, 12, d_model)
-    ts_state_dict = torch.load("model.pt", map_location="cpu")
-    w1_weight, w2_weight, w3_weight = [ts_state_dict[f"_orig_mod.layers.0.ffn.{k}.weight"] for k in ["w1", "w2", "w3"]]
+    self.w_qkv = nn.Linear(dim, dim*3, bias=False)
+    self.w_output = nn.Linear(dim, dim, bias=False)
 
-    swiglu = SwiGLU(d_model, d_ff)
-    swiglu._w1 = nn.Parameter(w1_weight)
-    swiglu._w2 = nn.Parameter(w2_weight)
-    swiglu._w3.copy_(w3_weight)
-    actual_output = swiglu(in_embeddings)
-    
+    self.rope = rope_module if rope_module is not None else RoPE(self.head_size)
 
-    expected_array = np.load('test_swiglu.npz')['array']
+  def forward(self, x):
+    q, k, v = self.w_qkv(x).chunk(3, dim=-1)
 
-    print(expected_array.shape, actual_output.shape)
-    print(np.abs(expected_array - actual_output.numpy()).max())
+    q = q.view((x.shape[0], x.shape[1], self.num_heads, self.head_size)).transpose(1, 2)
+    k = k.view((x.shape[0], x.shape[1], self.num_heads, self.head_size)).transpose(1, 2)
+    v = v.view((x.shape[0], x.shape[1], self.num_heads, self.head_size)).transpose(1, 2)
 
-# test_swiglu()
+    q, k = self.rope(q), self.rope(k)
+    attn = nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+    attn = attn.transpose(1, 2).reshape(x.shape)
+
+    return self.w_output(attn)
+
+
+class RoPE(nn.Module):
+
+  def __init__(self, dim: int, max_seq_len: int = 2048, base: float = 10000.0):
+    super().__init__()
+    self.half_d = dim // 2
+
+    with torch.no_grad():
+      inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
+      freqs = torch.outer(torch.arange(max_seq_len).float(), inv_freq)
+
+      self.register_buffer("cos_table", freqs.cos(), persistent=False)
+      self.register_buffer("sin_table", freqs.sin(), persistent=False)
+
+  def forward(self, x):
+    """(batch, num_heads, seq_len, head_dim)"""
+    seq_len = x.shape[-2]
+    return torch.cat([
+      x[..., :self.half_d] * self.cos_table[:seq_len, :] - x[..., self.half_d:] * self.sin_table[:seq_len, :],
+      x[..., :self.half_d] * self.sin_table[:seq_len, :] + x[..., self.half_d:] * self.cos_table[:seq_len, :],
+    ], dim=-1)
+
+
+"""
+class TestRoPEModule(unittest.TestCase):
+  def test_magnitude_preservation(self, dim=512, max_seq_len=1024):
+    rope = RoPE(dim, max_seq_len)
+
+    x = torch.randn((6, 3, max_seq_len, dim))
+    x_rotated = rope(x)
+
+    self.assertEqual(x_rotated.shape, x.shape, "Shape mismatch!")
+    self.assertTrue(torch.allclose(torch.norm(x, dim=-1), torch.norm(x_rotated, dim=-1)), "Tensor norm was not preserved")
+
+  def test_relative_positioning(self, dim=512):
+    rope = RoPE(dim, 20)
+    r = torch.randn((2, dim))
+    x = torch.empty((20, dim))
+    x[:10, :] = r[0, :]
+    x[10:, :] = r[1, :]
+    x = rope(x)
+
+    dots = [torch.dot(x[i, :], x[i+10, :]) for i in range(10)]
+    for i in range(9):
+      self.assertTrue(torch.allclose(dots[i], dots[i+1]))
+"""

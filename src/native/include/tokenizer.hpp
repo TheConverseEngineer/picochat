@@ -27,7 +27,7 @@ namespace tokenizer {
 
         void pretokenize(const std::string& raw_string, std::vector<std::vector<bpe::token_t>>& pretokens);
         
-        std::string untokenize(std::span<bpe::token_t> tokens);            
+        std::string untokenize(const std::span<const bpe::token_t>& tokens);            
     };
 
 }

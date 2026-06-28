@@ -32,7 +32,14 @@ void tokenize(const std::string& vocab_path, const std::string& text_path, const
     output_file.write(reinterpret_cast<const char*>(flattened.data()), flattened.size() * sizeof(bpe::token_t));
 }
 
+std::string untokenize(const std::string& vocab_path, const std::vector<bpe::token_t>& tokens) {
+    tokenizer::Vocabulary vocab(vocab_path);
+
+    return vocab.untokenize(tokens);
+}
+
 NB_MODULE(_core, m) {
     m.def("train_tokenizer", &train_tokenizer);
     m.def("tokenize", &tokenize);
+    m.def("untokenize", &untokenize);
 }

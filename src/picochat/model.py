@@ -123,7 +123,7 @@ class MiniLLM(nn.Module):
         super().__init__()
         # Construct just one instance of RoPE to avoid duplicate sin/cos tables in memory
         self._max_seq_len = max_seq_len
-        rope = RoPE(embedding_size, max_seq_len, rope_theta)
+        rope = RoPE(embedding_size // num_attention_heads, max_seq_len, rope_theta)
 
         self._model = nn.Sequential(
             nn.Embedding(vocab_size, embedding_size),
@@ -134,6 +134,9 @@ class MiniLLM(nn.Module):
             nn.RMSNorm(embedding_size),
             nn.Linear(embedding_size, vocab_size),
         )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self._model(x)
 
     @property
     def num_parameters(self) -> int:

@@ -9,9 +9,6 @@
 #include <chrono>
 #include <ranges>
 
-// TODO: have a mechanism for supporting multiple regex's here?
-#define PRETOKENIZE_REGEX R"('s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+)"
-
 namespace bpe {
 
 BPETrainerVocabulary::BPETrainerVocabulary() {
@@ -35,6 +32,8 @@ void write_no_space(std::ofstream& stream, const std::string& str) {
     for (char c : str) {
         if (c == ' ') {
             stream << "Ġ";
+        } else if (c == '\n') {
+            stream << "ġ";
         } else {
             stream << c;
         }
@@ -84,7 +83,7 @@ void BPETrainer::run_pretokenizer(const std::string& corpus) {
     boost::unordered_flat_map<std::string_view, unsigned int> frequency_counts(1<<17);
 
     for (auto segment : std::views::split(corpus, "<|endoftext|>")) {
-        for (auto& tokens : ctre::tokenize<R"('s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+)">(segment)) {
+        for (auto& tokens : ctre::tokenize<PRETOKENIZE_REGEX>(segment)) {
             auto view = tokens.to_view();
             frequency_counts[view] += 1;
         }

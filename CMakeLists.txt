@@ -6,7 +6,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0")
 
 project(native LANGUAGES CXX)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Python 3.12 COMPONENTS Interpreter Development.Module REQUIRED)
@@ -21,6 +21,7 @@ find_package(nanobind CONFIG REQUIRED)
 nanobind_add_module(_core 
     src/native/main.cpp
     src/native/bpe.cpp
+    src/native/tokenizer.cpp
 )
 
 target_include_directories(_core PRIVATE

@@ -6,6 +6,9 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
+// TODO: have a mechanism for supporting multiple regex's here?
+#define PRETOKENIZE_REGEX R"('s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+)"
+
 namespace bpe {
     /** Datatype must be large enough to store all unique id's in vocab (ie. max vocab size <= MAX_INT) */
     using token_t = std::uint16_t;

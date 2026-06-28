@@ -21,17 +21,15 @@ void tokenize(const std::string& vocab_path, const std::string& text_path, const
 
     std::vector<std::vector<bpe::token_t>> tokens;
     vocab.pretokenize(input_string, tokens);
-    std::cout << "Finished pretokenizing " << tokens.size() << " tokens!\n";
+    std::cout << "Finished pretokenizing " << tokens.size() << " words!\n";
 
     for (auto& pretoken : tokens) vocab.tokenize_pretoken(pretoken);
     auto flattened = tokens | std::views::join | std::ranges::to<std::vector<bpe::token_t>>();
     
     std::cout << "Tokenized into " << flattened.size() << " tokens!\n";
 
-    std::string untokenized = vocab.untokenize(flattened);
     std::ofstream output_file(output_path);
-    output_file << untokenized;
-    output_file.close();
+    output_file.write(reinterpret_cast<const char*>(flattened.data()), flattened.size() * sizeof(bpe::token_t));
 }
 
 NB_MODULE(_core, m) {

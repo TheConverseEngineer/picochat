@@ -6,6 +6,9 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
+// TODO: have a mechanism for supporting multiple regex's here?
+#define PRETOKENIZE_REGEX R"('s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+)"
+
 namespace bpe {
     /** Datatype must be large enough to store all unique id's in vocab (ie. max vocab size <= MAX_INT) */
     using token_t = std::uint16_t;
@@ -22,7 +25,7 @@ namespace bpe {
      * Note: this class is specifically designed for use with sequential tokens, as the 
      * underlying map is a vector, not a hashtable.
     */
-    class Vocabulary {
+    class BPETrainerVocabulary {
         /** Map of token -> string it represents */
         std::vector<std::string> token_to_word;
         /** Chronological record of merge rules to apply in order to convert input text into tokens */
@@ -31,7 +34,7 @@ namespace bpe {
     public:
         /** Constructor for the vocabulary class
          * Automatically initializes the first 256 valid bytes as direct-mapped tokens */
-        Vocabulary();
+        BPETrainerVocabulary();
 
         /** Add a new token to the vocabulary as the merge rule (a + b) -> new_token */
         void add_word(token_t new_token, token_t a, token_t b);
@@ -81,7 +84,7 @@ namespace bpe {
         BPETrainer(const std::string& corpus, token_t vocab_size);
 
         /** Generated vocab after training */
-        Vocabulary vocab;
+        BPETrainerVocabulary vocab;
     };
 
     /** Utility method to quickly read a file into a single string */

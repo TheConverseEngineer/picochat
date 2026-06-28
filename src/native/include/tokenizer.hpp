@@ -10,8 +10,13 @@
 
 namespace tokenizer {
 
+    struct MergeOutput {
+        bpe::token_t output;
+        unsigned int merge_priority;
+    };
+
     class Vocabulary {
-        std::vector<std::pair<bpe::token_pair_t, bpe::token_t>> merge_rules;
+        boost::unordered_flat_map<bpe::token_pair_t, MergeOutput> merge_rules;
         boost::unordered_flat_map<std::string, bpe::token_t> string_to_token;
         std::vector<std::string> token_to_string;
 

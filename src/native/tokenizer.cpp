@@ -40,7 +40,7 @@ Vocabulary::Vocabulary(const std::string& filename) {
         bpe::token_t token_a = string_to_token[tstr_a];
         bpe::token_t token_b = string_to_token[tstr_b];
 
-        merge_rules.emplace_back(std::make_pair(token_a, token_b), token_to_string.size());
+        merge_rules[std::make_pair(token_a, token_b)] = MergeOutput(token_to_string.size(), token_to_string.size() - 256);
         std::string new_tstr = tstr_a + tstr_b;
         string_to_token[new_tstr] = token_to_string.size();
         token_to_string.push_back(new_tstr);
@@ -52,14 +52,22 @@ Vocabulary::Vocabulary(const std::string& filename) {
 
 
 void Vocabulary::tokenize_pretoken(std::vector<bpe::token_t>& pretoken) {
-    for (const auto& merge_rule : merge_rules) {
+    while (pretoken.size() > 1) {
+        size_t token_to_merge = 0;
+        unsigned int merge_priority = std::numeric_limits<unsigned int>::max();
+
         for (size_t i = 0; i + 1 < pretoken.size(); i++) {
-            if (std::make_pair(pretoken[i], pretoken[i+1]) == merge_rule.first) {
-                pretoken[i+1] = token_to_string.size();
-                pretoken[i] = merge_rule.second;
-            }
+            auto rule = merge_rules.find(std::make_pair(pretoken[i], pretoken[i+1]));
+            if (rule == merge_rules.end() || rule->second.merge_priority >= merge_priority) continue;
+            
+            merge_priority = rule->second.merge_priority;
+            token_to_merge = i;
         }
-        std::erase(pretoken, token_to_string.size());
+
+        if (merge_priority == std::numeric_limits<unsigned int>::max()) break;
+        bpe::token_t new_token = merge_rules[std::make_pair(pretoken[token_to_merge], pretoken[token_to_merge + 1])].output;
+        pretoken[token_to_merge] = new_token;
+        pretoken.erase(pretoken.begin() + (1 + token_to_merge));
     }
 }
 

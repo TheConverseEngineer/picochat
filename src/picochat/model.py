@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 
-
 class SwiGLU(nn.Module):
 
     def __init__(self, dim: int, hidden_dim: int):
@@ -37,7 +36,7 @@ class CausalSelfAttention(nn.Module):
         v = v.view((x.shape[0], x.shape[1], self.num_heads, self.head_size)).transpose(1, 2)
 
         q, k = self.rope(q), self.rope(k)
-        attn = nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+        attn = torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
         attn = attn.transpose(1, 2).reshape(x.shape)
 
         return self.w_output(attn)
@@ -123,7 +122,7 @@ class MiniLLM(nn.Module):
         super().__init__()
         # Construct just one instance of RoPE to avoid duplicate sin/cos tables in memory
         self._max_seq_len = max_seq_len
-        rope = RoPE(embedding_size, max_seq_len, rope_theta)
+        rope = RoPE(embedding_size // num_attention_heads, max_seq_len, rope_theta)
 
         self._model = nn.Sequential(
             nn.Embedding(vocab_size, embedding_size),
@@ -134,6 +133,9 @@ class MiniLLM(nn.Module):
             nn.RMSNorm(embedding_size),
             nn.Linear(embedding_size, vocab_size),
         )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self._model(x)
 
     @property
     def num_parameters(self) -> int:

@@ -88,7 +88,7 @@ void Vocabulary::pretokenize(const std::string& raw_string, std::vector<std::vec
 }
 
 
-std::string Vocabulary::untokenize(std::span<bpe::token_t> tokens) {
+std::string Vocabulary::untokenize(const std::span<const bpe::token_t>& tokens) {
     std::ostringstream oss;
     for (const bpe::token_t& token : tokens) {
         oss << token_to_string[token];

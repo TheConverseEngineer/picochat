@@ -54,21 +54,21 @@ if __name__ == "__main__":
 
     vocab_size = 4096
     embedding_size = 384
-    num_transformer_blocks = 4
+    num_transformer_blocks = 8
     hidden_ff_dim = 1024
     num_attention_heads = 16
-    sequence_length = 1024
-    batch_size = 16
+    sequence_length = 512
+    batch_size = 32
 
-    warm_up_duration = 100
-    annealing_duration = 2900
+    warm_up_duration = 200
+    annealing_duration = 10000
     lr_max = 1e-3
     lr_min = 1e-5
     max_grad_norm = 1
 
-    eval_temperature = 0.4
+    eval_temperature = 1
 
-    writer = SummaryWriter('runs/small_llm_fixlr_mps_flash_attention', flush_secs=5)
+    writer = SummaryWriter('runs/medium_llm_long_context', flush_secs=5)
 
     ### Load training data, model, optimizer, and LR scheduler
     # prepare_tokens(vocab_size, vocab_path, training_data_path)
@@ -81,6 +81,9 @@ if __name__ == "__main__":
     ).to(device)
     llm.train()
     print(llm)
+    print(f"Max recommended memory usage: {torch.mps.recommended_max_memory()}")
+    checkpoint = torch.load("checkpoint_4080.pt")
+    llm.load_state_dict(checkpoint['model_state_dict'])
 
     optimizer = torch.optim.AdamW(llm.parameters(), lr=lr_max, betas=(0.9, 0.95))
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -97,6 +100,7 @@ if __name__ == "__main__":
     ### Training loop!
     start_time = time.time()
     for epoch, (training_inputs, training_outputs) in enumerate(training_dataloader):
+        break
         X, y = training_inputs.to(device, dtype=torch.int), training_outputs.to(device, dtype=torch.long)
 
         optimizer.zero_grad()
@@ -120,9 +124,25 @@ if __name__ == "__main__":
         
         update_max_mem_usage()
         writer.add_scalar("MPS watermark", max_mem_usage, epoch)
-        if epoch > 3000:
+
+        if (epoch) % ((warm_up_duration + annealing_duration) // 10) == 0:
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': llm.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+            }, f"checkpoint_{epoch}.pt")
+
+        if epoch > warm_up_duration + annealing_duration:
             break
     
+    """
+    torch.save({
+        'epoch': warm_up_duration + annealing_duration,
+        'model_state_dict': llm.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+    }, f"checkpoint_final.pt")
+    """
+
     print("Done!")
     writer.flush()
     writer.close()

@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 
-
 class SwiGLU(nn.Module):
 
     def __init__(self, dim: int, hidden_dim: int):
@@ -37,7 +36,7 @@ class CausalSelfAttention(nn.Module):
         v = v.view((x.shape[0], x.shape[1], self.num_heads, self.head_size)).transpose(1, 2)
 
         q, k = self.rope(q), self.rope(k)
-        attn = nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+        attn = torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
         attn = attn.transpose(1, 2).reshape(x.shape)
 
         return self.w_output(attn)
